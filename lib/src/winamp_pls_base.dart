@@ -8,12 +8,12 @@ class PlsParser {
   final _lengthRegExp = RegExp(r'^[Ll]ength(?<index>\d+)=(?<length>.*)$');
   
   final _playlistEntries = <int,PlaylistEntry>{};
-  int? _numberOfEntries = null;
+  int? _numberOfEntries;
   
   List<PlaylistEntry> parse(String content) {
     final lines = splitter.convert(content);
     
-    if (lines[0] != '[playlist]') {
+    if (lines.first != '[playlist]') {
       throw ParserException('Missing [playlist] at start');
     }
     
