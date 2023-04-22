@@ -23,7 +23,9 @@ class Parser {
     }
     
     if (_numberOfEntries != null && _playlistEntries.length != _numberOfEntries) {
-      throw ParserException("NumberOfEntries mismatch : in file ($_numberOfEntries) vs parsed($_playlistEntries.length)");
+      final fn = _numberOfEntries;
+      final pn = _playlistEntries.length;
+      throw ParserException("NumberOfEntries mismatch : claimed($fn) vs parsed($pn)");
     }
     
     var result = _playlistEntries.values.toList();
