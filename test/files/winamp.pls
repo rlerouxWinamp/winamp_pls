@@ -1,0 +1,1 @@
+[playlist]File1=https://dancewave.online:443/dance.mp3Title1=All about Dance from 2000 till today! (Dance Wave!)Length1=-1File2=C:\Users\User Name\AppData\Roaming\Winamp\demo.mp3Title2=DJ Mike Llama - Llama Whippin' IntroLength2=5NumberOfEntries=2Version=2

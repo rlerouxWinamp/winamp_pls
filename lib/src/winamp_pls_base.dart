@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-class Parser {
+class PlsParser {
   static const splitter = LineSplitter();
   
   final _fileRegExp = RegExp(r'^[Ff]ile(?<index>\d+)=(?<file>.*)$');
