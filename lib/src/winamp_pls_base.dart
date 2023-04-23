@@ -1,122 +1,122 @@
 import 'dart:convert';
+import 'dart:developer';
 
-class PlsParser {
-  static const splitter = LineSplitter();
-  
-  final _fileRegExp = RegExp(r'^[Ff]ile(?<index>\d+)=(?<file>.*)$');
-  final _titleRegExp = RegExp(r'^[Tt]itle(?<index>\d+)=(?<title>.*)$');
-  final _lengthRegExp = RegExp(r'^[Ll]ength(?<index>\d+)=(?<length>.*)$');
-  
-  final _playlistEntries = <int,PlaylistEntry>{};
-  int? _numberOfEntries;
-  
-  List<PlaylistEntry> parse(String content) {
-    final lines = splitter.convert(content);
-    
-    if (lines.first != '[playlist]') {
-      throw ParserException('Missing [playlist] at start');
-    }
-    
-    for (int i = 1; i < lines.length; i++) {
-      final line = lines[i];
-      _parseLine(line, i);
-    }
-    
-    if (_numberOfEntries != null && _playlistEntries.length != _numberOfEntries) {
-      final fn = _numberOfEntries;
-      final pn = _playlistEntries.length;
-      throw ParserException("NumberOfEntries mismatch : claimed($fn) vs parsed($pn)");
-    }
-    
-    var result = _playlistEntries.values.toList();
-    result.sort((a,b) => a.index.compareTo(b.index));
-    return result;
-  }
-  
-  void _parseLine(String line, int lineIndex) {
-    if (line.isEmpty || line.trim() == '') {
-      return; // skip empty lines
-    }
-    
-    if (line.startsWith('File') || line.startsWith('file')) {
-      _parseFileLine(line, lineIndex);
-    }
-    else if (line.startsWith('Title') || line.startsWith('title')) {
-      _parseTitleLine(line, lineIndex);
-    }
-    else if (line.startsWith('Length') || line.startsWith('length')) {
-      _parseLengthLine(line, lineIndex);
-    }
-    else if (line.startsWith('NumberOfEntries=') || line.startsWith('numberofentries=')) {
-      _numberOfEntries = int.parse(line.substring('NumberOfEntries='.length));
-    }
-    else if (line.startsWith('Version=') || line.startsWith('version=')) {
-      print(line);
-    }
-    else {
-      print('Unknown line "$line"');
-    }
-  }
-  
-  void _parseFileLine(String line, int lineIndex) {
-    var match = _fileRegExp.firstMatch(line);
-    
-    if (match == null) {
-      throw ParserException('Invalid "File" at line $lineIndex : "$line"');
-    }
-    
-    var index = int.parse(match.namedGroup('index')!);
-    var entry = _getOrCreatePlaylistEntryAt(index);
-    entry.file = match.namedGroup('file')!;
+import 'parser_exception.dart';
+import 'playlist_entry.dart';
+
+const splitter = LineSplitter();
+
+final _fileRegExp = RegExp(r'^[Ff]ile(?<index>\d+)=(?<file>.*)$');
+final _titleRegExp = RegExp(r'^[Tt]itle(?<index>\d+)=(?<title>.*)$');
+final _lengthRegExp = RegExp(r'^[Ll]ength(?<index>\d+)=(?<length>.*)$');
+
+List<PlaylistEntry> parsePls(String content) {
+  final lines = splitter.convert(content);
+
+  if (lines.first != '[playlist]') {
+    throw ParserException('Missing [playlist] at start');
   }
 
-  void _parseTitleLine(String line, int lineIndex) {
-    var match = _titleRegExp.firstMatch(line);
-
-    if (match == null) {
-      throw ParserException('Invalid "Title" at line $lineIndex : "$line"');
-    }
-
-    var index = int.parse(match.namedGroup('index')!);
-    var entry = _getOrCreatePlaylistEntryAt(index);
-    entry.title = match.namedGroup('title')!;
+  final context = _ParserContext();
+  for (int i = 1; i < lines.length; i++) {
+    context.line = lines[i];
+    context.lineIndex = i;
+    _parseLine(context);
   }
 
-  void _parseLengthLine(String line, int lineIndex) {
-    var match = _lengthRegExp.firstMatch(line);
-
-    if (match == null) {
-      throw ParserException('Invalid "Length" at line $lineIndex : "$line"');
-    }
-      
-
-    var index = int.parse(match.namedGroup('index')!);
-    var entry = _getOrCreatePlaylistEntryAt(index);
-    entry.length = int.parse(match.namedGroup('length')!);
+  final n = context.numberOfEntries;
+  final pn = context.playlistEntries.length;
+  if (n != null && n != pn) {
+    throw ParserException(
+        "NumberOfEntries mismatch : claimed($n) vs parsed($pn)");
   }
-  
-  PlaylistEntry _getOrCreatePlaylistEntryAt(int index) {
-    if (!_playlistEntries.containsKey(index)) {
-      _playlistEntries[index] = PlaylistEntry(index);
-    }
-    return _playlistEntries[index]!;
+
+  var result = context.playlistEntries.values.toList();
+  result.sort((a, b) => a.index.compareTo(b.index));
+  return result;
+}
+
+void _parseLine(_ParserContext context) {
+  if (context.line.isEmpty || context.line.trim() == '') {
+    return; // skip empty lines
+  }
+
+  // We're generous with casing
+  // For ex: the shoutcast directory files contain
+  // lowercase "numberofentries" instead of "NumberOfEntries"
+  if (context.line.startsWith('File') || context.line.startsWith('file')) {
+    _parseFileLine(context);
+  } else if (context.line.startsWith('Title') ||
+      context.line.startsWith('title')) {
+    _parseTitleLine(context);
+  } else if (context.line.startsWith('Length') ||
+      context.line.startsWith('length')) {
+    _parseLengthLine(context);
+  } else if (context.line.startsWith('NumberOfEntries=') ||
+      context.line.startsWith('numberofentries=')) {
+    _parseNumberOfEntries(context);
+  } else if (context.line.startsWith('Version=') ||
+      context.line.startsWith('version=')) {
+    log(context.line);
+  } else {
+    log('Unknown "${context.line}" at line ${context.lineIndex}');
   }
 }
 
-class ParserException implements Exception {
-  final String message;
-  const ParserException(this.message);
-  @override
-  String toString() => 'ParserException: $message';
+void _parseFileLine(_ParserContext context) {
+  var match = _fileRegExp.firstMatch(context.line);
+
+  if (match == null) {
+    throw ParserException(
+        'Invalid "File" in "${context.line}"', context.lineIndex);
+  }
+
+  var index = int.parse(match.namedGroup('index')!);
+  context.getEntryAt(index).file = match.namedGroup('file')!;
 }
 
-class PlaylistEntry {
-  final int index;
-  
-  late String file;
-  
-  String title = '';
-  int length = -1;
-  
-  PlaylistEntry(this.index);
+void _parseTitleLine(_ParserContext context) {
+  var match = _titleRegExp.firstMatch(context.line);
+
+  if (match == null) {
+    throw ParserException(
+        'Invalid "Title" in "${context.line}"', context.lineIndex);
+  }
+
+  var index = int.parse(match.namedGroup('index')!);
+  context.getEntryAt(index).title = match.namedGroup('title')!;
+}
+
+void _parseLengthLine(_ParserContext context) {
+  var match = _lengthRegExp.firstMatch(context.line);
+
+  if (match == null) {
+    throw ParserException(
+        'Invalid "Length" in "${context.line}"', context.lineIndex);
+  }
+
+  var index = int.parse(match.namedGroup('index')!);
+  context.getEntryAt(index).length = int.parse(match.namedGroup('length')!);
+}
+
+void _parseNumberOfEntries(_ParserContext context) {
+  final n = int.tryParse(context.line.substring('NumberOfEntries='.length));
+  if (n == null) {
+    throw ParserException(
+        'Invalid "NumberOfEntries" in "${context.line}"', context.lineIndex);
+  }
+}
+
+class _ParserContext {
+  final playlistEntries = <int, PlaylistEntry>{};
+  int? numberOfEntries;
+  late String line;
+  late int lineIndex;
+
+  PlaylistEntry getEntryAt(int index) {
+    if (!playlistEntries.containsKey(index)) {
+      playlistEntries[index] = PlaylistEntry(index);
+    }
+    return playlistEntries[index]!;
+  }
 }

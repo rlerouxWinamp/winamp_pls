@@ -10,10 +10,9 @@ void main() {
     });
 
     test('Test typical playlist', () {
-      var p = PlsParser();
       var testFile = File('test/files/playlist.pls');
       var content = testFile.readAsStringSync();
-      var playlist = p.parse(content);
+      var playlist = parsePls(content);
       
       expect(playlist.length, 5);
 
@@ -24,10 +23,9 @@ void main() {
     });
 
     test('Test shoutcast', () {
-      var p = PlsParser();
       var testFile = File('test/files/tunein-station.pls');
       var content = testFile.readAsStringSync();
-      var playlist = p.parse(content);
+      var playlist = parsePls(content);
 
       expect(playlist.length, 1);
 
@@ -38,10 +36,9 @@ void main() {
     });
 
     test('Test winamp', () {
-      var p = PlsParser();
       var testFile = File('test/files/winamp.pls');
       var content = testFile.readAsStringSync();
-      var playlist = p.parse(content);
+      var playlist = parsePls(content);
 
       expect(playlist.length, 2);
 
